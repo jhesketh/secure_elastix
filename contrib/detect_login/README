@@ -1,0 +1,8 @@
+Copyright 2011 i-possible <support@i-possible.com.au>
+Author: Joshua Hesketh <joshua.hesketh@i-possible.com.au>
+License: GPLv3 (see LICENSE)
+
+detect_login is a crude bash script to grep through asterisks logs and firewall
+brute force log in attempts using iptables.
+
+If using fail2ban with an asterisk jail this program is mostly redundant.

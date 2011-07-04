@@ -1,0 +1,51 @@
+#!/bin/bash
+
+while :
+do {
+	echo "`date` Running script";
+	FILE=/var/log/asterisk/full
+	for ip in `egrep -i "No matching peer" $FILE |cut -d ' ' -f 11 |cut -d "'" -f 2 |sort |uniq`;
+	do { 
+		echo "No matching peer $ip";
+		if [[ "$ip" != "fsdfora" ]]; then {
+			COUNT=`egrep -i "$ip(.*)No matching peer" $FILE |wc -l`;
+			if [[ "$COUNT" -gt "100" ]]; then {
+				if iptables -L -n --line-numbers | egrep -q -i "$ip"; then {
+					echo "$COUNT:   $ip     is already blocked";
+				}; else {
+					echo "$COUNT:   $ip"; 
+					echo "iptables -I INPUT -s $ip -j DROP";
+					iptables -I INPUT -s $ip -j DROP;
+					EMAILMESSAGE=/tmp/monitor_message;
+					rm $EMAILMESSAGE;
+					echo "$ip matched $COUNT times.\niptables -I INPUT -s $ip -j DROP" >> $EMAILMESSAGE;
+					#mail -s "Blocking IP on tel1" "joshua.hesketh@i-possible.com.au" < $EMAILMESSAGE;
+					$EMAILMESSAGE >> block.log
+				}; fi;
+			}; fi;
+		}; fi;
+	}; done;
+        for ip in `egrep -i "Wrong password" $FILE |cut -d ' ' -f 11 |cut -d "'" -f 2 |sort |uniq`;
+        do {
+		echo "Wrong password $ip";
+            	if [[ "$ip" != "forasdf" ]]; then {
+                        COUNT=`egrep -i "$ip(.*)(Wrong password)" $FILE |wc -l`;
+                        if [[ "$COUNT" -gt "100" ]]; then {
+                                if iptables -L -n --line-numbers | egrep -q -i "$ip"; then {
+                                        echo "$COUNT:   $ip     is already blocked";
+                                }; else {
+                                        echo "$COUNT:   $ip";
+                                        echo "iptables -I INPUT -s $ip -j DROP";
+                                        iptables -I INPUT -s $ip -j DROP;
+                                        EMAILMESSAGE=/tmp/monitor_message;
+                                        rm $EMAILMESSAGE;
+                                        echo "$ip matched $COUNT times.\niptables -I INPUT -s $ip -j DROP" >> $EMAILMESSAGE;
+                                        #mail -s "Blocking IP on tel1" "joshua.hesketh@i-possible.com.au" < $EMAILMESSAGE;
+                                        $EMAILMESSAGE >> block.log
+                                }; fi;
+                        }; fi;
+                }; fi;
+        }; done;
+	echo "Finished script";
+	sleep 1800;
+}; done;

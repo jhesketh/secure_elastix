@@ -1,0 +1,253 @@
+#!/bin/bash
+
+echo "--- secure_elastix ---"
+
+
+echo "This script requires access to MySQL to update certain passwords"
+echo "The MySQL root account only allows local connections so is not a"
+echo "security threat and doesn't require changing (as it may cause "
+echo "incompatabilities in elastix)"
+
+echo ""
+
+echo "For a list of default passwords see:"
+echo "http://technicians-blog.kingcomputer.com.au/what-are-the-default-passwords-in-elastix-centos/"
+
+echo ""
+
+#=== Set MySQL access
+echo -n "Please supply the MySQL root password [eLaStIx.2oo7] "
+read MYSQL_PASS
+if [ "$MYSQL_PASS" = "" ]
+then
+    MYSQL_PASS="eLaStIx.2oo7"
+fi
+
+#=== Change elastix password
+echo -n "Change elastix password (y/[n]) "
+read CHANGE
+if [ "$CHANGE" = "y" ]
+then
+    echo -n "Password for elastix admin acocunt: "
+    read ADMIN_PASS
+    /usr/bin/sqlite3 /var/www/db/acl.db "UPDATE acl_user SET md5_password = '`echo -n "$ADMIN_PASS"|md5sum|cut -d ' ' -f 1`' WHERE name = 'admin'"
+    echo "Elastix password updated"
+fi
+
+#=== Change A2Billing
+echo -n "Change A2Billing password (y/[n]) "
+read CHANGE
+if [ "$CHANGE" = "y" ]
+then
+    echo -n "Password for A2Billing admin acocunt: "
+    read ADMIN_PASS
+    echo -n "Password for A2Billing root acocunt: "
+    read ROOT_PASS
+    
+    mysql -u root --password="$MYSQL_PASS" <<QUERY_INPUT
+    USE mya2billing;
+    UPDATE cc_ui_authen SET password='"$ADMIN_PASS"' WHERE login = 'admin';
+    UPDATE cc_ui_authen SET password='"$ROOT_PASS"' WHERE login = 'root';
+QUERY_INPUT
+
+    echo "A2Billing passwords updated"
+fi
+
+#=== Change VTiger (not implemented)
+echo -n "Change VTiger password (y/[n]) "
+read CHANGE
+if [ "$CHANGE" = "y" ]
+then
+    echo "Support not implemented yet due to complicated hashing of password. Change the password through the interface online."
+fi
+
+#=== Change SugarCMS (not implemented)
+echo -n "Change SugarCMS password (y/[n]) "
+read CHANGE
+if [ "$CHANGE" = "y" ]
+then
+    echo "Support not implemented yet due to complicated hashing of password. Change the password through the interface online."
+fi
+
+#=== Change SSHD Port
+echo -n "Move the sshd port (y/[n]) "
+read CHANGE
+if [ "$CHANGE" = "y" ]
+then
+    CURRENT_PORT=`grep -i "^port [0-9]*" /etc/ssh/sshd_config | sed "s/Port //"`
+    echo -n "Set port to [$CURRENT_PORT] "
+    read SSHD_PORT
+    if [ "$SSHD_PORT" = "" ]
+    then
+        SSHD_PORT="$CURRENT_PORT"
+    fi
+    
+    sed -ir "s/^Port [0-9]*/Port $SSHD_PORT/" /etc/ssh/sshd_config
+    echo "sshd port set to $SSHD_PORT. You will need to restart the ssh daemon yourself when you are ready (connection will be interruprted). Use 'service sshd restart'"
+fi
+SSHD_PORT=`grep -i "^port [0-9]*" /etc/ssh/sshd_config | sed "s/Port //"`
+
+#=== Move https port
+echo -n "Move https port (y/[n]) "
+read CHANGE
+if [ "$CHANGE" = "y" ]
+then
+    CURRENT_PORT=`grep -i "^Listen [0-9]*" /etc/httpd/conf.d/ssl.conf | sed "s/Listen //"`
+    echo -n "Set port to [$CURRENT_PORT] "
+    read HTTPS_PORT
+    if [ "$HTTPS_PORT" = "" ]
+    then
+        HTTPS_PORT="$CURRENT_PORT"
+    fi
+    
+    sed -ir "s/$CURRENT_PORT/$HTTPS_PORT/" /etc/httpd/conf.d/ssl.conf
+    service httpd reload
+    echo "https port set to $HTTPS_PORT"
+fi
+HTTPS_PORT=`grep -i "^Listen [0-9]*" /etc/httpd/conf.d/ssl.conf | sed "s/Listen //"`
+
+#=== Cover everything with htaccess
+echo -n "Create site-wide htaccess authentication (y/[n]) "
+read CHANGE
+if [ "$CHANGE" = "y" ]
+then
+    cat <<EOF > /var/www/html/.htaccess
+AuthUserFile  /etc/httpd/.htpasswd
+AuthGroupFile /dev/null
+AuthName  secure-elastix
+AuthType Basic
+require valid-user
+EOF
+    echo -n "Username [admin] "
+    read HTACCESS_USERNAME
+    if [ "$HTACCESS_USERNAME" = "" ]
+    then
+        HTACCESS_USERNAME="admin"
+    fi
+    htpasswd -c /etc/httpd/.htpasswd $HTACCESS_USERNAME
+    sed -ir "s/AllowOverride None/AllowOverride All/" /etc/httpd/conf/httpd.conf
+fi
+
+#=== Install fail2ban
+echo -n "Install fail2ban with elastix optimised configuration (y/[n]) "
+read CHANGE
+if [ "$CHANGE" = "y" ]
+then
+    #yum install fail2ban
+    cp configs/fail2ban/jail.conf /etc/fail2ban/
+    cp configs/fail2ban/filter.d/asterisk.conf /etc/fail2ban/filter.d/
+    sed -ir "s/dateformat=.*/dateformat=%F %T/" /etc/asterisk/logger.conf
+    #asterisk -rx "logger reload"
+        
+    sed -i "s/SSHD_PORT/$SSHD_PORT/" /etc/fail2ban/jail.conf
+    sed -i "s/HTTPS_PORT/$HTTPS_PORT/" /etc/fail2ban/jail.conf
+    
+    echo -n "Send alerts to (email address) [address@example.com] "
+    read ALERT_ADDRESS
+    if [ "$ALERT_ADDRESS" = "" ]
+    then
+        ALERT_ADDRESS="address@example.com"
+    fi
+    sed -i "s/address@example.com/$ALERT_ADDRESS/" /etc/fail2ban/jail.conf
+    
+    echo -n "Send header (email subject) [[Fail2Ban]] "
+    read ALERT_HEADER
+    if [ "$ALERT_HEADER" = "" ]
+    then
+        ALERT_HEADER="[Fail2Ban]"
+    fi
+    sed -i "s/\[Fail2Ban\]/$ALERT_HEADER/" /etc/fail2ban/action.d/sendmail-whois.conf
+
+    echo -n "Send from (email address) [fail2ban] "
+    read FROM_ADDRESS
+    if [ "$FROM_ADDRESS" = "" ]
+    then
+        FROM_ADDRESS="fail2ban"
+    fi
+    sed -i "s/sender = fail2ban/sender = $FROM_ADDRESS/" /etc/fail2ban/action.d/sendmail-whois.conf
+
+    service fail2ban restart
+    echo "Fail2Ban configured and asterisk logging modified to suit"
+fi
+
+#=== Install detect_login
+echo "(note: detect_login is likely redundant when using Fail2Ban)"
+echo -n "Install 'detect_login' - a program that firewalls IP's with large numbers of bad sip registrations (y/[n]) "
+read CHANGE
+if [ "$CHANGE" = "y" ]
+then
+    cp contrib/detect_login /root/
+    chmod +x /root/detect_login/detect_login
+    echo "cd /root/detect_login && nohup /root/detect_login/detect_login" >> /etc/rc.local
+    nohup /root/detect_login/detect_login &
+    sleep 0.3
+    echo "detect_login installed and set to run at boot"
+fi
+
+#=== Firewall all incoming ports
+echo -n "Firewall all incoming ports except for ssh ($SSHD_PORT) and https ($HTTPS_PORT) (WARNING!, resets current rules) (y/[n]) "
+read CHANGE
+if [ "$CHANGE" = "y" ]
+then
+    iptables -P INPUT ACCEPT
+    iptables -P OUTPUT ACCEPT
+    iptables -P FORWARD ACCEPT
+    iptables -F
+    iptables -X
+
+    iptables -A INPUT -i lo -p all -j ACCEPT
+
+    iptables -A INPUT -p tcp -m tcp --dport $SSHD_PORT -j ACCEPT
+    iptables -A INPUT -p tcp -m tcp --dport $HTTPS_PORT -j ACCEPT
+
+    iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+    iptables -P INPUT DROP
+
+    echo "iptables rule created (use iptables -L to check)"
+    echo -n "Restart Fail2Ban? (y/[n]) "
+    read RESTART_FAILTOBAN
+    if [ "$RESTART_FAILTOBAN" = "y" ]
+    then
+        service fail2ban restart
+    fi
+fi
+
+#=== Install asterisk_firewalling
+echo -n "Install 'asterisk_firewalling' - a program that whitelists IP's on the firewall (y/[n]) "
+read CHANGE
+if [ "$CHANGE" = "y" ]
+then
+    cp -R contrib/asterisk_firewalling /var/www/html/
+    echo "You need to give the httpd user access to iptables. For security reasons this program"
+    echo "can not do it automatically. You need to copy and paste the following line adjusting"
+    echo "it for your needs into your sudoers file."
+    echo "asterisk    ALL = NOPASSWD: /sbin/iptables"
+    echo -n "Would you like to open sudoedit now? (y/[n]) "
+    read OPEN_SUDOEDIT
+    if [ "$OPEN_SUDOEDIT" = "y" ]
+    then
+        sudoedit /etc/sudoers
+    fi
+    echo -n "Secret token for access [auto-gen] "
+    read SECRET_TOKEN
+    if [ "$SECRET_TOKEN" = "" ]
+    then
+        SECRET_TOKEN=`echo "$$" | md5sum | md5sum`
+        SECRET_TOKEN=`echo ${SECRET_TOKEN:0:20}`
+    fi
+    sed -i "s/MYSECRETAUTH/$SECRET_TOKEN/" /var/www/html/asterisk_firewalling/authenticate.php
+
+    echo "asterisk_firewalling installed at http://yoursite.com/asterisk_firewalling/authenticate.php?auth=$SECRET_TOKEN"
+    echo "Point your sip devices/networks at that url to whitelist the network IP"
+fi
+
+#=== Allow ping's
+echo -n "Allow incoming ICMP requests (ping's) (y/[n]) "
+read CHANGE
+if [ "$CHANGE" = "y" ]
+then
+    iptables -A INPUT -p icmp -j ACCEPT 
+    echo "iptables rule created to allow ICMP requests"
+fi
+

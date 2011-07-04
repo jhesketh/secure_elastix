@@ -1,0 +1,42 @@
+Copyright 2011 i-possible <support@i-possible.com.au>
+Author: Joshua Hesketh <joshua.hesketh@i-possible.com.au>
+License: GPLv3 (see LICENSE)
+
+Also see individual contrib README's.
+
+This program is designed to help secure elastix by running some crude bash commands.
+I recommend looking at the source of the program before running it as it is rather
+straight forward and it is important to know how it is going to modify the system.
+
+Here is a list of the features and briefly what they do. For more information see
+fail2ban, iptables and the README's in the contrib.
+
+Change the default passwords of the following elastix services:
+ - Change elastix password
+ - Change A2Billing password
+ - Change VTiger password (not finished) 
+ - Change SugarCMS password (not finished)
+ 
+Move the sshd port (security through obscurity)
+
+Move https port (security through obscurity)
+
+Create site-wide htaccess authentication 
+    This adds a layer of security on top of all web services provided. This is quite
+    useful as it covers any flaws in elastix, freepbx, fop etc.
+
+Install fail2ban with elastix optimised configuration
+    See fail2ban manual. The included configuration is optimised for elastix.
+    
+Install 'detect_login' - a program that firewalls IP's with large numbers of bad sip registrations
+    See contrib README
+    (likely redundant with fail2ban)
+
+Firewall all incoming ports except for ssh and https (WARNING!, resets current rules)
+    This also clearly blocks SIP traffic. These rules are designed to be used with asterisk_firewalling (see contrib)
+
+Install 'asterisk_firewalling' - a program that whitelists IP's on the firewall
+    See contrib README
+
+Allow incoming ICMP requests (ping's)
+    A simple firewall exception

@@ -1,0 +1,23 @@
+Copyright 2011 i-possible <support@i-possible.com.au>
+Author: Joshua Hesketh <joshua.hesketh@i-possible.com.au>
+License: GPLv3 (see LICENSE)
+
+
+This program is designed to be used in a system that blocks all incoming traffic except for http/s.
+The program simply opens up the ports necessary to use SIP thus providing a means of white listing IP's.
+The ports open can be changed by editing the $commands array in the authentication.php file.
+Place the entire folder into a publically accessible http directory.
+
+When the authenticate.php file is hit the requesting IP gets an exception added into iptables.
+Alternatively the IP can be provided through a GET parameter (eg: authenticate.php?auth=token&ip=127.0.0.1)
+
+An auth token needs to be provided as a GET parameter. This should be unique and can be changed in the authentication.php file.
+
+This program is ran as the apache user (eg www-data). As such it is likely authentication is needed to be raised.
+Sudo can do this by entering the following rule into the /etc/sudoers file:
+
+www-data    ALL = NOPASSWD: /sbin/iptables
+
+or for elastix:
+
+asterisk    ALL = NOPASSWD: /sbin/iptables
