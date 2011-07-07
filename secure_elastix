@@ -126,6 +126,7 @@ EOF
     fi
     htpasswd -c /etc/httpd/.htpasswd $HTACCESS_USERNAME
     sed -ir "s/AllowOverride None/AllowOverride All/" /etc/httpd/conf/httpd.conf
+    service httpd restart
 fi
 
 #=== Install fail2ban
@@ -133,11 +134,11 @@ echo -n "Install fail2ban with elastix optimised configuration (y/[n]) "
 read CHANGE
 if [ "$CHANGE" = "y" ]
 then
-    #yum install fail2ban
+    yum install fail2ban
     cp configs/fail2ban/jail.conf /etc/fail2ban/
     cp configs/fail2ban/filter.d/asterisk.conf /etc/fail2ban/filter.d/
     sed -ir "s/dateformat=.*/dateformat=%F %T/" /etc/asterisk/logger.conf
-    #asterisk -rx "logger reload"
+    asterisk -rx "logger reload"
         
     sed -i "s/SSHD_PORT/$SSHD_PORT/" /etc/fail2ban/jail.conf
     sed -i "s/HTTPS_PORT/$HTTPS_PORT/" /etc/fail2ban/jail.conf
