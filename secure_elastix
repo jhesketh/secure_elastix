@@ -74,7 +74,7 @@ echo -n "Move the sshd port (y/[n]) "
 read CHANGE
 if [ "$CHANGE" = "y" ]
 then
-    CURRENT_PORT=`grep -i "^port [0-9]*" /etc/ssh/sshd_config | sed "s/Port //"`
+    CURRENT_PORT=`grep -i "Port [0-9]*" /etc/ssh/sshd_config | sed "s/Port //"`
     echo -n "Set port to [$CURRENT_PORT] "
     read SSHD_PORT
     if [ "$SSHD_PORT" = "" ]
@@ -82,10 +82,10 @@ then
         SSHD_PORT="$CURRENT_PORT"
     fi
     
-    sed -ir "s/^Port [0-9]*/Port $SSHD_PORT/" /etc/ssh/sshd_config
+    sed -ir "s/Port [0-9]*/Port $SSHD_PORT/" /etc/ssh/sshd_config
     echo "sshd port set to $SSHD_PORT. You will need to restart the ssh daemon yourself when you are ready (connection will be interruprted). Use 'service sshd restart'"
 fi
-SSHD_PORT=`grep -i "^port [0-9]*" /etc/ssh/sshd_config | sed "s/Port //"`
+SSHD_PORT=`grep -i "Port [0-9]*" /etc/ssh/sshd_config | sed "s/Port //"`
 
 #=== Move https port
 echo -n "Move https port (y/[n]) "
@@ -126,7 +126,7 @@ EOF
     fi
     htpasswd -c /etc/httpd/.htpasswd $HTACCESS_USERNAME
     sed -ir "s/AllowOverride None/AllowOverride All/" /etc/httpd/conf/httpd.conf
-    service httpd restart
+    service httpd reload
 fi
 
 #=== Install fail2ban
