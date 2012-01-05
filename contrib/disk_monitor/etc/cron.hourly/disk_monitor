@@ -1,0 +1,6 @@
+#!/bin/sh
+
+/root/disk_monitor.sh
+
+exit 0
+

@@ -252,3 +252,24 @@ then
     echo "iptables rule created to allow ICMP requests"
 fi
 
+#=== Install disk_monitor
+echo -n "Install 'disk_monitor' - sends email alerts when disk is running > 90% (y/[n]) "
+read CHANGE
+if [ "$CHANGE" = "y" ]
+then
+    cp contrib/disk_monitor/disk_monitor.sh /root/
+    chmod +x /root/disk_monitor.sh
+
+    echo -n "Send alerts to (email address) [address@example.com] "
+    read ALERT_ADDRESS
+    if [ "$ALERT_ADDRESS" = "" ]
+    then
+        ALERT_ADDRESS="address@example.com"
+    fi
+    sed -i "s/address@example.com/$ALERT_ADDRESS/" /root/disk_monitor.sh
+
+    cp contrib/disk_monitor/etc/cron.hourly/disk_monitor /etc/cron.hourly/
+    chmod +x /etc/cron.hourly/disk_monitor
+    echo "disk_monitor installed and set to run hourly"
+fi
+
